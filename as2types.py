@@ -22,6 +22,7 @@ def as_links():
     #print(data)
     ids = pd.unique(data[[0,1]].values.ravel('K'))
     #print(ids)
+    #2.2 graph 2
     global_deg = get_global(data)
     peers_deg = get_peers(data)
     non_peers = get_nonpeers(data)
@@ -29,6 +30,18 @@ def as_links():
     #group by provider-AS
     customers_deg = get_customers(non_peers)
     providers_deg = get_providers(non_peers)
+
+
+    
+
+def ip_prefix_as():
+    #2.2 graph 3
+    file = "routeviews-rv2-20211029-1800.pfx2as"
+    data = read_file(file, "\t")
+    print(data)
+    ip_space = data.groupby(2).count().reset_index().drop(1, axis=1)
+    print(ip_space)
+    
 
     #for id in ids:
         #peers
@@ -38,7 +51,7 @@ def get_global(data):
     as_sum = pd.concat([as1, as2])
     as_sum = as_sum.groupby(as_sum.index).sum().reset_index()
     return
-    
+
 def get_providers(data):
     providers_deg = data.groupby(1).count().drop([2,3], axis=1).rename(columns={1:0})
     return providers_deg
@@ -86,8 +99,10 @@ def main():
     print(astypes.loc['Content',0])
     print(data)
     '''
+    #2.1 graph 1a - 1b
     #as_classify()
-    as_links()
+    #as_links()
+    ip_prefix_as()
 
 if __name__ == "__main__":
     main() 
