@@ -31,6 +31,17 @@ def as_links():
     customers_deg = get_customers(non_peers)
     providers_deg = get_providers(non_peers)
 
+    #section 2.2 Graph 4
+    #print(non_peers)
+    providers_as = non_peers[[0]].values.ravel('K')
+
+    print(providers_as)
+    customer_as = non_peers[[1]].values.ravel('K')
+    enterprise_as = [id for id in ids if(id in providers_as and id not in customer_as)]
+    print(enterprise_as)
+    peers_as = peers_deg.values.ravel('K')
+
+
 
     
 
@@ -101,8 +112,8 @@ def main():
     '''
     #2.1 graph 1a - 1b
     #as_classify()
-    #as_links()
-    ip_prefix_as()
+    as_links()
+    #ip_prefix_as()
 
 if __name__ == "__main__":
     main() 
