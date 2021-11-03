@@ -20,28 +20,59 @@ def as_links():
     file = "20211001.as-rel2.txt"
     data = read_file(file,"|")
     #print(data)
+    #print(data)
     ids = pd.unique(data[[0,1]].values.ravel('K'))
     #print(ids)
     #2.2 graph 2
-    global_deg = get_global(data)
     peers_deg = get_peers(data)
     non_peers = get_nonpeers(data)
     #<provider-AS>j<customer-AS>j -1 j<source>
     #group by provider-AS
+    file = "routeviews-rv2-20211029-1800.pfx2as"
+    ip_map = read_file(file, "\t")
+    
+    #print(ip_map)
+    global_deg = get_global(data)
     customers_deg = get_customers(non_peers)
     providers_deg = get_providers(non_peers)
+    
+    global_ip_space = ip_join_as(global_deg,ip_map)
+    customers_ip_space = ip_join_as(customers_deg,ip_map)
+    providers_ip_space = ip_join_as(providers_deg,ip_map)
 
+    #histograms
+    
     #section 2.2 Graph 4
     #print(non_peers)
+    '''
     providers_as = non_peers[[0]].values.ravel('K')
-
     print(providers_as)
     customer_as = non_peers[[1]].values.ravel('K')
     enterprise_as = [id for id in ids if(id in providers_as and id not in customer_as)]
     print(enterprise_as)
     peers_as = peers_deg.values.ravel('K')
+    '''
 
 
+def ip_join_as(data, ip_prefix_as):
+    #data is the types of degrees dataframe
+    #Drop all rows with multiple AS separted by , or _
+    ip_prefix_as = ip_prefix_as.drop(ip_prefix_as.loc[ip_prefix_as[2].str.contains("_")].index)
+    ip_prefix_as = ip_prefix_as.drop(ip_prefix_as.loc[ip_prefix_as[2].str.contains(",")].index)
+    
+    #change type from Object to int
+    ip_prefix_as[2] = ip_prefix_as[2].astype('int64')
+    
+    #getting all rows in ip_prefix that exists in data
+    ip_as_exists = ip_prefix_as[ip_prefix_as[2].isin(data.index)]
+    print(data)
+    
+    ip_as_exists = ip_as_exists.assign(Num_IPs = lambda x: 2**(32 - x[1]))
+    #ip_as_exists = ip_as_exists.assign(Num_AS = lambda x: data.loc[data[0] == x[2]])
+    #ip_as_exists[3] =
+    print(ip_as_exists)
+    return ip_as_exists
+    
 
     
 
@@ -61,7 +92,8 @@ def get_global(data):
     as2 = data.groupby(1).count().drop([2,3], axis=1).rename(columns={1:0})
     as_sum = pd.concat([as1, as2])
     as_sum = as_sum.groupby(as_sum.index).sum().reset_index()
-    return
+    #print(as_sum)
+    return as_sum
 
 def get_providers(data):
     providers_deg = data.groupby(1).count().drop([2,3], axis=1).rename(columns={1:0})
