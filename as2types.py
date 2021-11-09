@@ -42,36 +42,39 @@ def as_links():
     providers_deg = get_providers(non_peers)
     #bins
     deg_bins = [0,1,2,5,100,200,1000]
-    print(peers_deg)
+    #print(peers_deg)
     
-    plot_histogram(global_deg, deg_bins, 'deg')
-    plot_histogram(customers_deg, deg_bins, 'deg')
-    plot_histogram(providers_deg, deg_bins, 'deg')
-    plot_histogram(peers_deg, deg_bins, 'deg')
-
-
-    #print(global_deg[0])
-    #test = global_deg["deg"].tolist()
-    #test = [x for x in test if x > 1000]
-    #print(global_deg["deg"])
-    #print(global_deg.groupby("deg").count())
-    #print(np.clip(global_deg["deg"], deg_bins[0], deg_bins[-1]))
-    #plt.hist(global_deg["deg"], bins=deg_bins)
-    #global_hist = global_deg.hist(column="deg",bins=[0,1,2,5,100,200,1000])
-    #print(global_deg)
-    
-    #global_hist = global_deg.hist(column="deg", bins=deg_bins)
-    #print(global_hist)
-    #plt.hist(global_deg["deg"])
-    
+    #Section 2.2 graph 2
+    plot_histogram(global_deg, deg_bins, 'deg', "Global Degree vs Number of AS")
+    plot_histogram(customers_deg, deg_bins, 'deg', "Customer Degree vs Number of AS")
+    plot_histogram(providers_deg, deg_bins, 'deg', "Provider Degree vs Number of AS")
+    plot_histogram(peers_deg, deg_bins, 'deg', "Peer Degree vs Number of AS")
     
     #global_ip_space = ip_join_as(global_deg,ip_map)
     #customers_ip_space = ip_join_as(customers_deg,ip_map)
     #providers_ip_space = ip_join_as(providers_deg,ip_map)
+    #peers_ip_space = ip_join_as(peers_deg,ip_map)
 
+    ip_space = ip_join_as(data,ip_map)
+    #print(ip_space)
 
+    #print(global_ip_space)
+    ip_bins = ip_space.groupby("Num_IPs").count()
+    #print(ip_bins)
+    ip_bins = ip_bins.index.tolist()
+    #ip_bins = [0,256,65536,16777216,4294967296]
+    #print(ip_bins)
     #histograms
-    
+    #section 2.2 graph 3
+    plot_histogram(ip_space, ip_bins, 'Num_IPs', "IP Space of AS")
+    #plot_histogram(global_ip_space, ip_bins, 'Num_IPs', "Global IP Space vs Number of AS")
+    #plot_histogram(customers_ip_space, ip_bins, 'Num_IPs', "Customer IP Space vs Number of AS")
+    #plot_histogram(providers_ip_space, ip_bins, 'Num_IPs', "Provider IP Space vs Number of AS")
+    #plot_histogram(peers_ip_space, ip_bins, 'Num_IPs', "Peer IP Space vs Number of AS")
+
+    #section 2.2 Graph 4
+    ip_prefix_as(data)
+    #ip_b
     #test_ip = global_ip_space[1].tolist()
     #test_ip = [x for x in test_ip if x == 32]
     #print(len(test_ip))
@@ -84,11 +87,11 @@ def as_links():
     #customers_hist = customers_ip_space.hist(column="Num_IPs", bins=[0,1,2,5,100,200,1000, np.Inf])
     #providers_hist = providers_ip_space.hist(column="Num_IPs", bins=[0,1,2,5,100,200,1000, np.Inf])
     #plt.hist(np.clip(global_ip_space["Num_IPs"], bins[0], bins[-1]), bins=bins)
-    #section 2.2 Graph 4
+    
     #print(non_peers)
     plt.show()
     
-
+    
     '''
     providers_as = non_peers[[0]].values.ravel('K')
     print(providers_as)
@@ -97,7 +100,7 @@ def as_links():
     print(enterprise_as)
     peers_as = peers_deg.values.ravel('K')
     '''
-def plot_histogram(data, org_bins, column):
+def plot_histogram(data, org_bins, column, title):
     data_list = data[column].tolist()
     data_list.sort()
     bins = org_bins.copy()
@@ -107,7 +110,7 @@ def plot_histogram(data, org_bins, column):
     #print(max_deg)
     if max_deg > bins[-1]:
         bins.append(max_deg)
-    print(bins)
+    #print(bins)
     #print(global_deg_list)
     #fig, ax = plt.subplots(figsize=(16, 10))
     #ax.hist(data_list, density=False, bins=bins)
@@ -117,6 +120,8 @@ def plot_histogram(data, org_bins, column):
     ax.bar(range(len(hist)), hist, width=1)
     # Set the ticks to the middle of the bars
     ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+    #ax.set_xlabel(bins)
+    ax.set_title(title)
     # Set the xticklabels to a string that tells us what the bin edges were
     ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)])
     
@@ -137,25 +142,29 @@ def ip_join_as(data, ip_prefix_as):
     ip_prefix_as[2] = ip_prefix_as[2].astype('int64')
     
     #getting all rows in ip_prefix that exists in data
-    ip_as_exists = ip_prefix_as[ip_prefix_as[2].isin(data.index)]
+    #ip_as_exists = ip_prefix_as[ip_prefix_as[2].isin(data.index)]
     #print(data)
+    ip_as_exists = ip_prefix_as
     
     ip_as_exists = ip_as_exists.assign(Num_IPs = lambda x: 2**(32 - x[1]))
     #ip_as_exists = ip_as_exists.assign(Num_AS = lambda x: data.loc[data[0] == x[2]])
     #ip_as_exists[3] =
-    print(ip_as_exists)
+    #print(ip_as_exists)
     return ip_as_exists
     
 
     
 
-def ip_prefix_as():
+def ip_prefix_as(data=None):
     #2.2 graph 3
-    file = "routeviews-rv2-20211029-1800.pfx2as"
-    data = read_file(file, "\t")
+    #print(len(None))
+    if (len(data) == 0):
+        file = "routeviews-rv2-20211029-1800.pfx2as"
+        data = read_file(file, "\t")
+    
     print(data)
-    ip_space = data.groupby(2).count().reset_index().drop(1, axis=1)
-    print(ip_space)
+    #ip_space = data.groupby(2).count().reset_index().drop(1, axis=1)
+    #print(ip_space)
     
 
     #for id in ids:
@@ -223,6 +232,7 @@ def main():
     '''
     #2.1 graph 1a - 1b
     #as_classify()
+    #2.2 graph 2
     as_links()
     #ip_prefix_as()
 
