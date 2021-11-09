@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 import numpy as np
+from pandas.core.reshape.concat import concat
 
 
 def as_classify():
@@ -15,8 +16,8 @@ def as_classify():
         astypes = astypes.drop(1,axis=1)
         #astypes = as
         #print(astypes)
-        plot = astypes.plot.pie(y=0, title="AS Classification - " + date, ylabel="(%) distribution of ASes", figsize=(5, 5))
-    plt.show()
+        plot = astypes.plot.pie(y=0, title="AS Classification - " + date, autopct='%1.1f%%', ylabel="(%) distribution of ASes", figsize=(5, 5))
+    #plt.show()
     return
 
 def as_links():
@@ -56,50 +57,70 @@ def as_links():
     #peers_ip_space = ip_join_as(peers_deg,ip_map)
 
     ip_space = ip_join_as(data,ip_map)
-    #print(ip_space)
-
-    #print(global_ip_space)
+    
     ip_bins = ip_space.groupby("Num_IPs").count()
     #print(ip_bins)
     ip_bins = ip_bins.index.tolist()
-    #ip_bins = [0,256,65536,16777216,4294967296]
-    #print(ip_bins)
-    #histograms
+    
     #section 2.2 graph 3
     plot_histogram(ip_space, ip_bins, 'Num_IPs', "IP Space of AS")
-    #plot_histogram(global_ip_space, ip_bins, 'Num_IPs', "Global IP Space vs Number of AS")
-    #plot_histogram(customers_ip_space, ip_bins, 'Num_IPs', "Customer IP Space vs Number of AS")
-    #plot_histogram(providers_ip_space, ip_bins, 'Num_IPs', "Provider IP Space vs Number of AS")
-    #plot_histogram(peers_ip_space, ip_bins, 'Num_IPs', "Peer IP Space vs Number of AS")
+    
 
     #section 2.2 Graph 4
-    ip_prefix_as(data)
-    #ip_b
-    #test_ip = global_ip_space[1].tolist()
-    #test_ip = [x for x in test_ip if x == 32]
-    #print(len(test_ip))
-    #test = global_ip_space.groupby("Num_IPs").count()
-    #print(test)
-    #bins = [0,1,2,5,100,200,1000]
-    #print(global_ip_space.groupby("Num_IPs").count())
-    
-    #global_hist = global_ip_space.hist(column="Num_IPs", bins=[0,1,2,5,100,200,1000, np.Inf])
-    #customers_hist = customers_ip_space.hist(column="Num_IPs", bins=[0,1,2,5,100,200,1000, np.Inf])
-    #providers_hist = providers_ip_space.hist(column="Num_IPs", bins=[0,1,2,5,100,200,1000, np.Inf])
-    #plt.hist(np.clip(global_ip_space["Num_IPs"], bins[0], bins[-1]), bins=bins)
-    
-    #print(non_peers)
+    #print(global_deg)
+    #customers_deg = customers_deg.reset_index()
+    #providers_deg = providers_deg.reset_index()
+    #print(customers_deg)
+    #print(providers_deg)
+    #print(peers_deg)
+    enterprise_as = global_deg[~global_deg.index.isin(customers_deg.index)]
+    enterprise_as = enterprise_as[~enterprise_as.index.isin(peers_deg.index)]
+    #print(enterprise_as)
+    content_as = global_deg[~global_deg.index.isin(customers_deg.index)]
+    content_as = content_as[content_as.index.isin(peers_deg.index)]
+    #print(content_as)
+    transit_as = global_deg[global_deg.index.isin(customers_deg.index)]
+    #print(transit_as)
+    size = [len(enterprise_as),len(content_as),len(transit_as)]
+    labels = ["Enterprise AS", "Content AS", "Transit AS"]
+    fig, ax = plt.subplots()
+    ax.set_title("AS Classification")
+    ax.pie(size,autopct='%1.1f%%',labels=labels)
+    #ax.legend(this.patches, labels, loc="best")
+    ax.axis('equal')
     plt.show()
     
+    #section 2.3
+    global_ranked = global_deg.sort_values(by = 0, ascending = False)
+    #print(global_ranked)
+    T1Clique = np.array([global_ranked['index'].iloc[0]])
+    for i in range(1,50):
+        NextAS = global_ranked['index'].iloc[i]
+        NextLinks0 = data.loc[data[0] == NextAS]
+        NextLinks1 = data.loc[data[1] == NextAS]
+        count = 0
+        for AS in T1Clique:
+            if not AS in NextLinks0[1].values and not AS in NextLinks1[0]:
+                break
+            count = count + 1
+
+        if count == T1Clique.size:
+            T1Clique = np.append(T1Clique,NextAS)
+
+        if  T1Clique.size >= 10 and not NextAS in T1Clique:
+            break
+    print (T1Clique)
+
+    orgASData = read_file("20211001.as-org2info1.txt","|")
+    orgOrgData = read_file("20211001.as-org2info.txt","|")
+    print(orgASData)
+    for AS in T1Clique:
+        #print(orgASData.loc[orgASData[0] == AS,2].iloc[0])
+        org_id = orgASData.loc[orgASData[0] == AS,3]
+        print(orgOrgData.loc[orgOrgData[0] == org_id.iloc[0],2].iloc[0])
+        print(global_ranked.loc[global_ranked['index'] == AS, 0].iloc[0])
     
-    '''
-    providers_as = non_peers[[0]].values.ravel('K')
-    print(providers_as)
-    customer_as = non_peers[[1]].values.ravel('K')
-    enterprise_as = [id for id in ids if(id in providers_as and id not in customer_as)]
-    print(enterprise_as)
-    peers_as = peers_deg.values.ravel('K')
-    '''
+    
 def plot_histogram(data, org_bins, column, title):
     data_list = data[column].tolist()
     data_list.sort()
@@ -114,7 +135,9 @@ def plot_histogram(data, org_bins, column, title):
     #print(global_deg_list)
     #fig, ax = plt.subplots(figsize=(16, 10))
     #ax.hist(data_list, density=False, bins=bins)
-    hist, bin_edges = np.histogram(data_list, bins)
+    #print(data_list)
+    #data_pct = data_list.div(data_list.sum(1),axis=0)
+    hist, bin_edges = np.histogram(data_list, bins,weights=np.ones(len(data_list)) / len(data_list))#,weights=np.ones(len(data_list)) / len(data_list)
     fig, ax = plt.subplots(figsize=(16, 10))
     # Plot the histogram heights against integers on the x axis
     ax.bar(range(len(hist)), hist, width=1)
@@ -124,11 +147,19 @@ def plot_histogram(data, org_bins, column, title):
     ax.set_title(title)
     # Set the xticklabels to a string that tells us what the bin edges were
     ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)])
-    
+    '''
     for rect in ax.patches:
         height = rect.get_height()
         ax.annotate(f'{int(height)}', xy=(rect.get_x()+rect.get_width()/2, height), 
                     xytext=(0, 5), textcoords='offset points', ha='center', va='bottom')
+    '''
+    # Add this loop to add the annotations
+    for p in ax.patches:
+        width = p.get_width()
+        height = p.get_height()
+        x, y = p.get_xy() 
+        ax.annotate(f'{height:.000%}', (x + width/2, y + height*1.02), ha='center')
+    
     
     return
 
@@ -167,8 +198,7 @@ def ip_prefix_as(data=None):
     #print(ip_space)
     
 
-    #for id in ids:
-        #peers
+    
 def get_global(data):
     as1 = data.groupby(0).count().drop([2,3], axis=1).rename(columns={1:0})
     as2 = data.groupby(1).count().drop([2,3], axis=1).rename(columns={1:0})
@@ -231,9 +261,9 @@ def main():
     print(data)
     '''
     #2.1 graph 1a - 1b
-    #as_classify()
-    #2.2 graph 2
-    as_links()
+    as_classify()
+    #2.2 graph 2/3/4
+    #as_links()
     #ip_prefix_as()
 
 if __name__ == "__main__":
