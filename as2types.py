@@ -3,6 +3,7 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
+import itertools as it
 
 
 
@@ -76,7 +77,8 @@ def as_links():
     #print(peers_deg)
     enterprise_as = global_deg[~global_deg.index.isin(customers_deg.index)]
     enterprise_as = enterprise_as[~enterprise_as.index.isin(peers_deg.index)]
-    #print(enterprise_as)
+    print(enterprise_as)
+    stub_list = enterprise_as['index'].tolist()
     content_as = global_deg[~global_deg.index.isin(customers_deg.index)]
     content_as = content_as[content_as.index.isin(peers_deg.index)]
     #print(content_as)
@@ -91,10 +93,10 @@ def as_links():
     ax.axis('equal')
     #plt.show()
     
-    print(non_peers)
+    #print(non_peers)
     edges = non_peers.copy()
     edges = edges.drop([2,3], axis=1)
-    print(edges)
+    #print(edges)
     G = nx.DiGraph()
     G = nx.from_pandas_edgelist(edges, 0, 1)
     #plt.figure(figsize=(10, 8))
@@ -105,9 +107,56 @@ def as_links():
         leaderboard[x] = len(G[x])
     s = pd.Series(leaderboard, name='connections')
     conn_df = s.to_frame().sort_values('connections', ascending=False)
-    print(conn_df)
+    #print(conn_df)
     max_conn = conn_df.index.tolist()[0]
     #print(conn_df.index.tolist()[0])
+    #print(stub_list[0])
+    print("Trees:")
+    #print(non_peers)
+    sorted_non_peers = customers_deg.sort_values(by='deg', ascending = False)
+    sorted_non_peers = sorted_non_peers.head(20)
+    print(sorted_non_peers)
+    print(sorted_non_peers.index.tolist())
+    sorted_non_peers = sorted_non_peers.index.tolist()
+    #for x in stub_list:
+    #    T = nx.dfs_predecessors(G,x)
+    #print(nx.dag_longest_path(G))
+    
+    AS = {}
+    src_nodes = []
+    #T = nx.dfs_predecessors(G,174)
+    #print(list(T.keys())[:10])
+    
+    for x in sorted_non_peers:
+        rank = {}
+        T = nx.dfs_predecessors(G,x)
+        nodes = list(T.keys())
+        last_key = nodes[-1]
+        print(last_key)
+        src_nodes.append(last_key)
+        #edges = list(T.edges())
+        #AS[x] = edges
+        #print(edges)
+        
+    for x in src_nodes:
+        T = nx.dfs_tree(G,x)
+        edges = list(T.edges())
+        AS[x] = edges
+    
+    for k,v in AS.items():
+        
+        print('{} - {}'.format(k,len(v)))
+    '''
+    all_paths=[]
+
+    for (x,y) in it.combinations(G.nodes,2):
+        for path in nx.all_simple_paths(G,x,y):
+            all_paths.append(path)
+
+    all_paths.sort(key=len,reverse=True)
+    '''
+    
+    
 
     #section 2.3
     global_ranked = global_deg.sort_values(by = 'deg', ascending = False)
