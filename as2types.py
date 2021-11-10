@@ -2,7 +2,8 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 import numpy as np
-from pandas.core.reshape.concat import concat
+import networkx as nx
+
 
 
 def as_classify():
@@ -42,7 +43,7 @@ def as_links():
     customers_deg = get_customers(non_peers)
     providers_deg = get_providers(non_peers)
     #bins
-    deg_bins = [0,1,2,5,100,200,1000]
+    deg_bins = [0,1,2,6,101,201,1000]
     #print(peers_deg)
     
     #Section 2.2 graph 2
@@ -61,7 +62,7 @@ def as_links():
     ip_bins = ip_space.groupby("Num_IPs").count()
     #print(ip_bins)
     ip_bins = ip_bins.index.tolist()
-    
+    #ip_bins = [16,256,512,2048,65536,1048576,4294967296]
     #section 2.2 graph 3
     plot_histogram(ip_space, ip_bins, 'Num_IPs', "IP Space of AS")
     
@@ -88,10 +89,28 @@ def as_links():
     ax.pie(size,autopct='%1.1f%%',labels=labels)
     #ax.legend(this.patches, labels, loc="best")
     ax.axis('equal')
-    plt.show()
+    #plt.show()
     
+    print(non_peers)
+    edges = non_peers.copy()
+    edges = edges.drop([2,3], axis=1)
+    print(edges)
+    G = nx.DiGraph()
+    G = nx.from_pandas_edgelist(edges, 0, 1)
+    #plt.figure(figsize=(10, 8))
+    #nx.draw_shell(G, with_labels=True)
+    #plt.show()
+    leaderboard = {}
+    for x in G.nodes:
+        leaderboard[x] = len(G[x])
+    s = pd.Series(leaderboard, name='connections')
+    conn_df = s.to_frame().sort_values('connections', ascending=False)
+    print(conn_df)
+    max_conn = conn_df.index.tolist()[0]
+    #print(conn_df.index.tolist()[0])
+
     #section 2.3
-    global_ranked = global_deg.sort_values(by = 0, ascending = False)
+    global_ranked = global_deg.sort_values(by = 'deg', ascending = False)
     #print(global_ranked)
     T1Clique = np.array([global_ranked['index'].iloc[0]])
     for i in range(1,50):
@@ -117,8 +136,55 @@ def as_links():
     for AS in T1Clique:
         #print(orgASData.loc[orgASData[0] == AS,2].iloc[0])
         org_id = orgASData.loc[orgASData[0] == AS,3]
-        print(orgOrgData.loc[orgOrgData[0] == org_id.iloc[0],2].iloc[0])
-        print(global_ranked.loc[global_ranked['index'] == AS, 0].iloc[0])
+        #print(orgOrgData.loc[orgOrgData[0] == org_id.iloc[0],2].iloc[0])
+        #print(global_ranked.loc[global_ranked['index'] == AS, 0].iloc[0])
+        #print(global_ranked.loc[global_ranked['index'] == AS, 'deg'].iloc[0])
+
+    #2.4 customer cone
+    '''
+    CustomerConeRanks = global_deg.copy()
+    CustomerConeRanks["CustomerCone"] = list()
+    CustomerConeRanks["visited"] = False
+    for AS in non_peers:
+        if not AS in CustomerConeRanks or CustomerConeRanks.empty:
+            CustomerConeRanks, customerSubConeDegree, customerSubCone = immed_customers(CustomerConeRanks, non_peers, customers_deg, AS, list())
+    '''
+    
+def find_all_paths(graph, start, path=[]):
+    path = path + [start]
+    paths = [path]
+    if len(graph[start]) == 0:  # No neighbors
+        print(path)
+    for node in graph[start]:
+        newpaths = find_all_paths(graph, node, path)
+        for newpath in newpaths:
+            paths.append(newpath)
+    return paths
+    
+
+def immed_customers(CustomerConeRanks, non_peers, customers_deg, AS, CustomerCone):
+
+    currentASdegree = customers_deg.loc[AS,0]        
+
+    if currentASdegree == 0:
+        newASrank = pd.DataFrame([AS, 0, list(), True])
+        CustomerConeRanks.append(newASrank)
+        return (CustomerConeRanks, 1, list(AS))
+
+    for customer in non_peers.loc[AS].iloc[:,1]:
+        if not customer in CustomerCone:
+            CustomerConeRanks,customerSubConeDegree, customerSubCone = immed_customers(CustomerConeRanks, non_peers, customers_deg, customer, CustomerCone)
+        else:
+            continue
+        currentASdegree += customerSubConeDegree
+        CustomerCone.append(customerSubCone)
+
+    if not AS in CustomerConeRanks:
+        newASrank = pd.DataFrame([AS, customerSubConeDegree, customerSubCone, True])
+        CustomerConeRanks.append(newASrank)
+
+    return (CustomerConeRanks, currentASdegree, CustomerCone)
+        
     
     
 def plot_histogram(data, org_bins, column, title):
@@ -137,7 +203,7 @@ def plot_histogram(data, org_bins, column, title):
     #ax.hist(data_list, density=False, bins=bins)
     #print(data_list)
     #data_pct = data_list.div(data_list.sum(1),axis=0)
-    hist, bin_edges = np.histogram(data_list, bins,weights=np.ones(len(data_list)) / len(data_list))#,weights=np.ones(len(data_list)) / len(data_list)
+    hist, bin_edges = np.histogram(data_list, bins)#,weights=np.ones(len(data_list)) / len(data_list)
     fig, ax = plt.subplots(figsize=(16, 10))
     # Plot the histogram heights against integers on the x axis
     ax.bar(range(len(hist)), hist, width=1)
@@ -147,27 +213,53 @@ def plot_histogram(data, org_bins, column, title):
     ax.set_title(title)
     # Set the xticklabels to a string that tells us what the bin edges were
     ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)])
-    '''
+    
     for rect in ax.patches:
         height = rect.get_height()
         ax.annotate(f'{int(height)}', xy=(rect.get_x()+rect.get_width()/2, height), 
                     xytext=(0, 5), textcoords='offset points', ha='center', va='bottom')
+    
     '''
     # Add this loop to add the annotations
     for p in ax.patches:
         width = p.get_width()
         height = p.get_height()
+        print(height)
         x, y = p.get_xy() 
-        ax.annotate(f'{height:.000%}', (x + width/2, y + height*1.02), ha='center')
+        ax.annotate(f'{height:.2%}', (x + width/2, y + height*1.0200), ha='center')
+    '''
     
     
     return
 
+def duplicate_rows(master_df, delimiter):
+    multipl_as = master_df.loc[master_df[2].str.contains(delimiter)]
+    #print(multipl_as)
+    #print(multipl_as[2].str.split('_'))
+    underscore = multipl_as[2].str.split(delimiter).apply(pd.Series,1).stack()
+    #print(underscore)
+    underscore.index = underscore.index.droplevel(-1)
+    #print(underscore)
+    underscore.name = 2
+    #print(underscore)
+    del multipl_as[2]
+    #print(multipl_as)
+    multipl_as = multipl_as.join(underscore)
+    #print(multipl_as)
+    master_df = master_df.drop(master_df.loc[master_df[2].str.contains(delimiter)].index)
+    master_df = pd.concat([master_df, multipl_as])#, ignore_index=True
+    master_df = master_df.reset_index()
+    #print(master_df)
+    return master_df
+
 def ip_join_as(data, ip_prefix_as):
     #data is the types of degrees dataframe
     #Drop all rows with multiple AS separted by , or _
-    ip_prefix_as = ip_prefix_as.drop(ip_prefix_as.loc[ip_prefix_as[2].str.contains("_")].index)
-    ip_prefix_as = ip_prefix_as.drop(ip_prefix_as.loc[ip_prefix_as[2].str.contains(",")].index)
+    #print(ip_prefix_as.loc[ip_prefix_as[2].str.contains("_")])3
+    
+    #ip_prefix_as = ip_prefix_as.reset_index
+    ip_prefix_as = duplicate_rows(ip_prefix_as,'_')
+    ip_prefix_as = duplicate_rows(ip_prefix_as,',')
     
     #change type from Object to int
     ip_prefix_as[2] = ip_prefix_as[2].astype('int64')
@@ -193,7 +285,7 @@ def ip_prefix_as(data=None):
         file = "routeviews-rv2-20211029-1800.pfx2as"
         data = read_file(file, "\t")
     
-    print(data)
+    #print(data)
     #ip_space = data.groupby(2).count().reset_index().drop(1, axis=1)
     #print(ip_space)
     
@@ -263,7 +355,7 @@ def main():
     #2.1 graph 1a - 1b
     as_classify()
     #2.2 graph 2/3/4
-    #as_links()
+    as_links()
     #ip_prefix_as()
 
 if __name__ == "__main__":
